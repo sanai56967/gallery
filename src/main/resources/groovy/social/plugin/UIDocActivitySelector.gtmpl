@@ -1,0 +1,38 @@
+<%
+/*
+<!--
+
+  Copyright (C) 2003-2011 eXo Platform SAS.
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Affero General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Affero General Public License for more details.
+
+  You should have received a copy of the GNU Affero General Public License
+  along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+-->
+*/
+%>
+
+<%
+  def rcontext = _ctx.getRequestContext();
+  def jsManager = rcontext.getJavascriptManager();
+  //jsManager.loadScriptResource("base"); //portal's problem, workaround for uicomponent.event()
+
+  String cancel = uicomponent.event(uicomponent.CANCEL);
+  String select = uicomponent.event(uicomponent.SELECTEDFILE);
+%>
+<div class="uiDocActivitySelector" id="$uicomponent.id">
+  <% uicomponent.renderChild(uicomponent.UIDOCUMENTSELECTOR); %>
+    <div class="uiAction uiActionBorder">
+      <button class="btn" type="button" onclick="$select"><%=_ctx.appRes(uicomponent.id + ".label.selectedfile");%></button>
+	  <button class="btn" type="button" onclick="$cancel"><%=_ctx.appRes(uicomponent.id + ".label.cancel");%></button>
+    </div>
+</div>

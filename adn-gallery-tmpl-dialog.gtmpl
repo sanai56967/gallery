@@ -1,0 +1,195 @@
+<%
+	import javax.jcr.Node;
+	import org.exoplatform.download.DownloadService;
+	import org.exoplatform.download.InputStreamDownloadResource;
+	import java.io.InputStream;
+	import org.exoplatform.ecm.webui.utils.Utils;
+	import org.exoplatform.services.cms.templates.TemplateService;
+	import java.text.SimpleDateFormat ;
+	import org.exoplatform.web.application.Parameter ;
+	import org.exoplatform.ecm.webui.utils.PermissionUtil;
+	import org.exoplatform.ecm.webui.utils.Utils;
+	import org.exoplatform.webui.core.UIPopupWindow;
+	import org.exoplatform.ecm.webui.utils.Utils;
+	import org.exoplatform.services.jcr.RepositoryService;
+	import org.exoplatform.services.jcr.util.Text;
+	import org.exoplatform.services.wcm.core.NodeLocation;
+	import java.util.List;
+	import org.exoplatform.webui.core.UIComponent;
+	import org.exoplatform.ecm.webui.presentation.AbstractActionComponent;
+	UIPopupWindow uiPopupWindow = uicomponent.getAncestorOfType(UIPopupWindow.class);
+	def resizeBlock = "class=\"UIResizableBlock\"";
+	if(uiPopupWindow != null) resizeBlock = ""; 
+	
+	
+	SimpleDateFormat dateFormat = new SimpleDateFormat() ;
+	Parameter[] params;
+	RepositoryService rService = uicomponent.getApplicationComponent(RepositoryService.class);
+	String repository = rService.getCurrentRepository().getConfiguration().getName();
+    public List<Node> getAttachments() {
+	def currentNode = uicomponent.getNode();
+		//def currentNode = uicomponent.getCurrentNode() ;
+		def attachments = new ArrayList<Node>() ;
+		def childrenIterator = currentNode.getNodes();
+		def attachData =0 ;
+		
+		while (childrenIterator.hasNext()) {
+		  def childNode = childrenIterator.nextNode();
+		  def nodeType = childNode.getPrimaryNodeType().getName();
+		  def listCanCreateNodeType = Utils.getListAllowedFileType(currentNode, uicomponent.getApplicationComponent(TemplateService.class)) ;
+		  if(listCanCreateNodeType.contains(nodeType) ) {
+
+			// Case of childNode has jcr:data property
+			if (childNode.hasProperty(Utils.JCR_DATA)) {
+			  attachData = childNode.getProperty(Utils.JCR_DATA).getStream().available();
+
+			  // Case of jcr:data has content.
+			  if (attachData > 0)
+				attachments.add(childNode);
+			} else {
+			  attachments.add(childNode);
+			}
+		  }
+		}
+		return attachments;
+    }
+
+	/*public UIComponent getRemoveAttach() {
+		removeChild(RemoveAttachmentComponent.class);
+		def uicomponent = addChild(RemoveAttachmentComponent.class, null, "DocumentInfoRemoveAttach");
+		((AbstractActionComponent)uicomponent).setLstComponentupdate(Arrays.asList(new Class[] {UIDocumentContainer.class}));
+		return uicomponent;
+	}*/
+
+ public String getAttachmentURL(Node attNode, Parameter[] params)  {
+    return getViewableLink(attNode, params);
+  }
+
+  public String getViewableLink(Node attNode, Parameter[] params)  {
+    return uicomponent.event("ChangeNode", Utils.formatNodeName(attNode.getPath()), params);
+  }	
+
+%>
+<style>
+	.ContentItems {
+		border: 1px solid #E1E1E1;
+		line-height: 20px;
+		padding: 5px 10px;
+	}
+	.ItemName {
+		line-height: 30px;
+		padding: 0 0 0 20px;
+	}
+	
+	.InfoMessageIcon{
+		background: url("/eXoResources/skin/DefaultSkin/skinIcons/16x16/icons/Info.gif") no-repeat scroll left 7px transparent;
+		display: block;
+		line-height: 16px;
+		padding: 5px 0 5px 22px;
+	}
+</style>
+
+<div class="UIForm FormLayout FormScrollLayout">
+  <% uiform.begin();
+     /* start render action*/
+     if (uiform.isShowActionsOnTop()) uiform.processRenderAction();
+     /* end render action*/
+  %> 
+    <div class="HorizontalLayout">
+
+      <table class="UIFormGrid">
+		<!-- Title -->
+		<tr>
+			<td class="FieldLabel"><label for="title"><%=_ctx.appRes("Article.dialog.label.title")%></label></td>
+			<td class="FieldComponent">
+			<%
+			  String[] fieldTitle = ["jcrPath=/node/exo:title", "options=noSanitization", "validate=empty"] ;
+			  uicomponent.addTextField("title", fieldTitle) ;
+			%>
+			</td>
+		</tr>
+		<!-- Name -->
+		<tr>
+			<td class="FieldLabel"><label for="name"><%=_ctx.appRes("Article.dialog.label.name")%></label></td>
+			<td class="FieldComponent">
+				<%
+				String[] fieldName = ["jcrPath=/node", "options=noSanitization", "mixintype=mix:votable,mix:commentable,mix:i18n,mix:versionable", "editable=if-null", "validate=empty,name"] ;
+				uicomponent.addTextField("name", fieldName) ;
+				%>
+			  <script type="text/javascript">
+			  titleField = document.getElementById("title");
+			  titleField.onchange = function() { eXo.ecm.SELocalization.cleanName(this.value, "name"); } ;
+			  </script>
+			</td>
+		</tr>
+		<!-- Summary -->
+        <tr>
+          <td class="FieldLabel">Summary</td>
+          <td class="FieldComponent">
+        <%
+            String[] fieldProperty = ["jcrPath=/node/exo:summary"];
+            uicomponent.addTextAreaField("/node/exo_summary", fieldProperty);
+        %>
+          </td>
+        </tr>
+		<tr>
+			<td>&nbsp;
+			</td>
+			<td class="FieldComponent">
+			<!-- Content -->
+			<%
+			if (uicomponent.getNode() != null) {
+			%>
+				<div class="UIAction UIDialogAction">
+					<label class="UIDialogTitle" >Content</label>
+				</div>
+					<%
+					  def attachments = getAttachments() ;
+					  if(attachments.size() > 0) {
+						//def removeattachcomponent = getRemoveAttach();
+						String wsName = "";
+					%>
+					<div class="ContentItems">
+						<%
+						  for(att in attachments) {
+							wsName = att.getSession().getWorkspace().getName();
+							params  = [new Parameter("workspaceName", wsName), new Parameter("findDrive","true")];
+							//def viewAttachmentLink =  getAttachmentURL(att, params);
+							//def linkActionName = (viewAttachmentLink.startsWith("http")) ? "href" : "onclick";
+							 def attName = att.getName();
+							def actionLink = uicomponent.event("RemoveData", "/" + attName + "/jcr:content" + "\$" + attName);
+							System.out.print(">>>> "+actionLink);
+						%>
+						  <div class="SubTabIcon">
+							<div class="RemoveNodeFloat">
+								<a onclick="$actionLink">
+									<img alt="<%=_ctx.appRes("Ecm.dialog.label.remove")%>" src="/eXoResources/skin/DefaultSkin/background/Blank.gif" class="ActionIcon Remove16x16Icon"/>
+								</a>
+								<span class="ItemName"><%=attName%></span>
+							</div>
+
+						</div>
+						<%}%>
+					</div>
+
+					<%} else { %>
+					<div class="ContentItems">
+						<div class="SubTabIcon">
+							<div class="RemoveNodeFloat">
+								<div class="InfoMessageIcon">No Content.</div>
+							</div>
+						</div>
+					</div>
+				<%}
+				}%>
+			<!-- END Content -->
+			</td>
+		</tr>
+      </table>
+    </div>
+  <% /* start render action*/
+     if (!uiform.isShowActionsOnTop()) uiform.processRenderAction();
+     /* end render action*/
+     uiform.end();
+  %>
+</div>
